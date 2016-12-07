@@ -207,7 +207,7 @@ def idw(input_point_array, tree, datum_array, k=2):
     idw_dict = {'dist': [], 'dcv': [], 'w': [], 'wdcv': []}
 
     # Get the 4 nearest neighbors of input_point_query
-    query_result = tree.query(input_point_array, 4)
+    query_result = tree.query(input_point_array, 6)
     # For each of the nearest neighbors...
     for result in query_result[1]:
         datum_point_array = datum_array[result]

@@ -1,0 +1,202 @@
+library(rgdal)
+library(raster)
+library(sp)
+library(gstat)
+library(RColorBrewer)
+library(classInt)
+library(RANN)
+setwd("/home/nronnei/gis/class/spatial_analysis/final_project/")
+
+##
+#####
+## Custom Functions
+#####
+## 
+
+
+great_circle_dist <- function(long1, lat1, long2, lat2) {
+  # Source: https://www.r-bloggers.com/great-circle-distance-calculations-in-r/
+  R <- 6371.01 # Earth mean radius [km]
+  d <- acos(sin(lat1)*sin(lat2) + cos(lat1)*cos(lat2) * cos(long2-long1)) * R
+  return(d) # Distance in km
+}
+
+
+idw.dc <- function(study_points, kd_results, dc_points, k = 2) {
+  
+  # Performs IDW interpolation to a coordinate (Lon, Lat dictionary) using
+  # coordinates stored in a 2D point tree structure. Distances are
+  # spherical, as this function assumes coordinates are lat-lon.
+  
+  idw.z <- rep(0, length(study_points[,1]))
+  
+  for (n in 1:length(study_points)) {
+    
+    # Get query point lon/lat
+    q.lon <- slot(study_points, "coords")[n, 1]
+    q.lat <- slot(study_points, "coords")[n, 2]
+    
+    # Get info for each neighbor to use in IDW
+    neighbors <- kd_results$nn.idx[n,]
+    n.lon <- slot(dc_points, "coords")[neighbors, 1]
+    n.lat <- slot(dc_points, "coords")[neighbors, 2]
+    n.vals <- dc_points$datumCorrection[neighbors]
+    
+    # Calculate weights
+    weights <- 1 / (great_circle_dist(q.lon, q.lat, n.lon, n.lat) ^ k)
+    
+    # Calculate weighted values
+    w.vals <- n.vals * weights
+    
+    # Do IDW
+    if (sum(weights) > 0) {
+      
+      idw.z[n] <- sum(w.vals) / sum(weights)
+      
+    } else {
+      
+      idw.z[n] <- NA
+      
+    }
+  }
+  return(idw.z)
+}
+
+
+##
+#####
+## Data Prep
+#####
+##
+
+
+## Projections
+prj.nad83 <- CRS("+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_defs")
+prj.wgs84 <- CRS("+proj=longlat +datum=WGS84 +no_defs")
+prj.utm <- CRS("+proj=utm +zone=12 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
+
+
+## Prep study area boundar
+study_area.wgs84 <- readOGR("./data/study_area/study_area_wgs84.shp/study_area_wgs84.shp", "study_area_wgs84")
+study_area.nad83 <- readOGR("./data/study_area/study_area_nad83.shp/study_area_nad83.shp", "study_area_nad83")
+study_area.utm <- spTransform(study_area.wgs84, prj.utm)
+sam.bb <- bbox(spTransform(readOGR("./data/osm/eer_48km_wgs84.shp", "eer_48km_wgs84"), prj.nad83)) 
+
+
+## Prep road data
+eer.utm <- readOGR("./data/osm/eer_utm.shp", "eer_utm")
+
+
+## Load DEMs
+gdem <- raster("./data/gdem/gdem_utm_clipped.tif")
+ned <- raster("./data/ned/ned_nad83.tif")
+
+
+## Sample Reference DEM
+# Load datum correction points
+dc <- read.csv("./data/points/usa_111k_datum_correction.csv", header = T, sep = ",")
+coordinates(dc) <- ~Lon+Lat
+
+# Get 300 random points from within our study area
+sa.sam <- spsample(study_area.nad83, 300, "random", bb = sam.bb) # slightly smaller bb ensures all sample points fall w/in study area
+plot(study_area.nad83, main = "Sample Points")
+points(sa.sam, pch = 1, cex = 1)
+summary(sa.sam)
+
+# Sample NED Values
+elev <- extract(ned, sa.sam, method = 'bilinear')
+# Convert to SpatialPointsDataFrame to keep everything in one place
+sa.sam <- SpatialPointsDataFrame(sa.sam, data = data.frame(n_dem = elev))
+
+# Use KD-Tree / IDW to get Datum Correction Values
+kd_results <- nn2(slot(dc, "coords"), slot(sa.sam, "coords"), k = 6)
+print(head(kd_results$nn.idx))
+sa.sam$dc <- idw.dc(sa.sam, kd_results, dc)
+sa.sam$c_elev <- sa.sam$n_dem + sa.sam$dc
+
+# Convert to UTM to make life easier and maps more rectangular
+sam.utm <- spTransform(sa.sam, prj.utm)
+
+# Compare GDEM to NED
+sam.utm$g_dem <- extract(gdem, sam.utm)
+sam.utm$diff <- sam.utm$g_dem - sam.utm$c_elev
+
+
+
+##
+#####
+## Background Investigation
+#####
+##
+
+
+## Set up some color palletes
+col.cont.greens <- rev(colorRampPalette(brewer.pal(5,"Greys"))(50))
+col.cont.spect <-  rev(colorRampPalette(brewer.pal(7,"Spectral"))(50))
+col.disc.spect <- rev(brewer.pal(7,"Spectral"))
+
+
+## Plot DEM 
+image(gdem, main = "ASTER GDEM (1/3as Resolution) Yellowstone National Park, WY",
+      col = col.cont.greens, xlab = "Easting", ylab = "Northing")
+mtext("East Entrance Road in Neon Blue")
+lines(eer.utm, col = "#82fffc", lwd = 2)
+dev.print(png, "./deliverables/img/gdem-with-roads.png", height=600, width=800)
+
+
+## Plot the study points with UTM 12N Projection
+# Set up breaks, colors
+dc.brks.jenks <- classIntervals(sam.utm$dc, 7, "jenks")
+diff.col <-  findColours(dc.brks.jenks, col.disc.spect)
+# Plot it
+plot(study_area.utm, main = "Datum Corrections by Z Score", axes = T)
+mtext(paste("Values Range Between ", round(min(sam.utm$dc), digits = 3), "m and ", round(max(sam.utm$dc), digits = 3), "m", sep = "" ))
+points(sam.utm["dc"], pch = 3, col = col.disc.spect, cex = abs((sam.utm$dc - mean(sam.utm$dc)) / sd(sam.utm$dc)))
+points(sam.utm["dc"], pch = 20, col = col.disc.spect, cex = .75) 
+dev.print(png, "./deliverables/img/dc-by-size.png", height=600, width=800) 
+
+
+## Check out differences in DEM values
+sam.hist <- hist(sam.utm$diff, main = "Difference: GDEM - NED", breaks = 30) 
+dev.print(png, "./deliverables/img/diff-hist.png", height=600, width=800) 
+sam.qqn <- qqnorm(sam.utm$diff, main = "QQ Norm of Difference: GDEM - NED", ylab = "Difference(m)")
+dev.print(png, "./deliverables/img/diff-qqn.png", height=600, width=800)
+
+
+## Plot DEM Difference
+# Set up breaks, colors
+diff.brks.sd <- classIntervals((sam.utm$diff - mean(sam.utm$diff)) / sd(sam.utm$diff), 7, "sd")
+diff.col <-  findColours(diff.brks.sd, col.disc.spect)
+# Plot it
+plot(study_area.utm, main = "DEM Differences by Z-Score", axes = T)
+mtext(paste("Values Range Between ", round(min(sam.utm$diff), digits = 3), "m and ", round(max(sam.utm$diff), digits = 3), "m", sep = "" ))
+points(sam.utm["diff"], pch = 3, col = diff.col, cex = abs((sam.utm$diff - mean(sam.utm$diff)) / sd(sam.utm$diff)))
+points(sam.utm["diff"], pch = 20, col = diff.col, cex = .75)
+dev.print(png, "./deliverables/img/diff-by-zscore.png", height=600, width=800)
+
+## Creating Slope Raster
+gdem.slope <- terrain(gdem, opt = "slope", unit = "degrees")
+sam.utm$g_slope <- extract(gdem.slope, sam.utm)
+
+
+## Creating Aspect Raster
+gdem.aspect <- terrain(gdem, opt = "aspect", unit = "degrees")
+sam.utm$g_aspect <- extract(gdem.aspect, sam.utm)
+
+## Store sample data so we don't mess up our sample in the TSA phase
+saveRDS(sam.utm, "./r/sample_data_utm.rds")
+
+##
+#####
+## Trend Surface Analysis
+#####
+##
+
+
+
+
+## Exploratory Analysis
+
+
+
+# spplot(sam, layout = list("sp.polygon", study_area))

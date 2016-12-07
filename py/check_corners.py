@@ -1,6 +1,7 @@
 from scipy import spatial as ss
 import numpy as np
 import datum_correction as dc
+import csv
 
 
 datum_points_file = '../data/usa_111k_datum_correction.csv'
@@ -24,8 +25,3 @@ for pt in pts:
 
 for result in results:
     print result["estimate"]
-
-# 2 pub pretzel platters
-# Fish and Chips
-# Flatbread Pizza
-# Desert Bars
