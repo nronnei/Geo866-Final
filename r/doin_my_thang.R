@@ -5,7 +5,7 @@ library(gstat)
 library(RColorBrewer)
 library(classInt)
 library(RANN)
-setwd("/home/nronnei/gis/class/spatial_analysis/final_project/")
+PROJECT_PATH = "/home/nronnei/gis/class/spatial_analysis/final_project/"
 
 ##
 #####
@@ -69,6 +69,7 @@ idw.dc <- function(study_points, kd_results, dc_points, k = 2) {
 #####
 ##
 
+setwd(PROJECT_PATH)
 
 ## Projections
 prj.nad83 <- CRS("+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_defs")

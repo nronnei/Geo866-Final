@@ -4,6 +4,7 @@ library(sp)
 library(gstat)
 library(RANN)
 
+PROJECT_PATH = "/home/nronnei/gis/class/spatial_analysis/final_project/"
 
 great_circle_dist <- function(long1, lat1, long2, lat2) {
   # Source: https://www.r-bloggers.com/great-circle-distance-calculations-in-r/
@@ -53,7 +54,7 @@ idw.dc <- function(study_points, kd_results, dc_points, k = 2) {
 }
 
 
-setwd("/home/nronnei/gis/class/spatial_analysis/final_project/")
+setwd(PROJECT_PATH)
 src_prj <- CRS("+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_defs")
 dst_prj <- CRS("+proj=longlat +datum=WGS84 +no_defs")
 
