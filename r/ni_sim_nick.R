@@ -24,6 +24,7 @@ build.convex.grid <- function (x, y, npts) {
 # Get the library and data loaded
 library(gstat)
 library(sp)
+library(raster)
 
 data(jura)
 jura <- jura.pred
@@ -82,6 +83,20 @@ spplot(sk.uncon, col.regions=heat.colors(20), main='Jura Ni: Unconditional Simul
 ## Conditional Simulation #
 
 sk.con <- krige(Ni ~ 1, jura, jg, model = ni.vmod, beta=mean(jura$Ni), nmax=16, nsim=4)
+
+## Saving individual rasters to file
+# for (i in 1:length(slot(sk.con, "data"))) {
+#   
+#   sim <- as.data.frame(slot(sk.con, "coords"), col.names = c("x", "y"))
+#   # sim$y <- slot(sk.con, "coords")[,2]
+#   sim$z <- slot(sk.con, "data")[[i]]
+#   path <- paste("./data/gdem/error_surfaces/sim_0", i, ".tif", sep = "")
+#   
+#   prj.wgs84 <- CRS("+proj=longlat +datum=WGS84 +no_defs")
+#   sim.r <- rasterFromXYZ(sim, crs = prj.wgs84)
+#   writeRaster(sim.r, filename = path, format = "GTiff")
+#   
+# }
 
 spplot(sk.con, col.regions=heat.colors(20), main='Jura Ni: Conditional Simulations (SK)')
 #dev.print(png, "ni_con.png", height=680, width=650)

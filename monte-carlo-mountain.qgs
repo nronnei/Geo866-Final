@@ -3,7 +3,7 @@
   <title></title>
   <autotransaction active="0"/>
   <evaluateDefaultValues active="0"/>
-  <layer-tree-group expanded="1" checked="Qt::Checked" name="">
+  <layer-tree-group expanded="1" checked="Qt::PartiallyChecked" name="">
     <customproperties/>
     <layer-tree-layer expanded="1" checked="Qt::Checked" id="east_entrance_road20161205131312375" name="East Entrance Road">
       <customproperties/>
@@ -11,10 +11,10 @@
     <layer-tree-layer expanded="1" checked="Qt::Checked" id="Buffer20161205132458554" name="40km">
       <customproperties/>
     </layer-tree-layer>
-    <layer-tree-layer expanded="1" checked="Qt::Checked" id="Buffer20161205132524370" name="45km">
+    <layer-tree-layer expanded="1" checked="Qt::Unchecked" id="Buffer20161205132524370" name="45km">
       <customproperties/>
     </layer-tree-layer>
-    <layer-tree-layer expanded="1" checked="Qt::Checked" id="Buffer20161205132851379" name="48km">
+    <layer-tree-layer expanded="1" checked="Qt::Unchecked" id="Buffer20161205132851379" name="48km">
       <customproperties/>
     </layer-tree-layer>
     <layer-tree-layer expanded="1" checked="Qt::Checked" id="gdem_wgs84_raw_clipped20161206100003085" name="GDEM (WGS84)">
@@ -25,10 +25,10 @@
   <mapcanvas>
     <units>degrees</units>
     <extent>
-      <xmin>-111.14896390663122361</xmin>
-      <ymin>43.99449150742654524</ymin>
-      <xmax>-109.04779723995534368</xmax>
-      <ymax>45.04565817409782369</ymax>
+      <xmin>-111.06962048837185364</xmin>
+      <ymin>43.98397611464518064</ymin>
+      <xmax>-108.96845382169600214</xmax>
+      <ymax>45.03514278131644488</ymax>
     </extent>
     <rotation>0</rotation>
     <projections>1</projections>
@@ -61,6 +61,7 @@
       <layer_coordinate_transform destAuthId="EPSG:4326" srcAuthId="EPSG:4326" srcDatumTransform="-1" destDatumTransform="-1" layerid="ned_nad8320161206115109850"/>
       <layer_coordinate_transform destAuthId="EPSG:4326" srcAuthId="EPSG:4326" srcDatumTransform="-1" destDatumTransform="-1" layerid="Buffer20161205131946872"/>
       <layer_coordinate_transform destAuthId="EPSG:4326" srcAuthId="EPSG:4326" srcDatumTransform="-1" destDatumTransform="-1" layerid="Buffer20161205132631892"/>
+      <layer_coordinate_transform destAuthId="EPSG:4326" srcAuthId="EPSG:2956" srcDatumTransform="-1" destDatumTransform="-1" layerid="smooth20161208081228432"/>
       <layer_coordinate_transform destAuthId="EPSG:4326" srcAuthId="EPSG:4326" srcDatumTransform="-1" destDatumTransform="-1" layerid="gdem_wgs84_raw_clipped20161206100003085"/>
       <layer_coordinate_transform destAuthId="EPSG:4326" srcAuthId="EPSG:4326" srcDatumTransform="-1" destDatumTransform="-1" layerid="ned_nad83_220161206115403545"/>
       <layer_coordinate_transform destAuthId="EPSG:4326" srcAuthId="EPSG:4326" srcDatumTransform="-1" destDatumTransform="-1" layerid="Buffer20161205132524370"/>
@@ -89,14 +90,14 @@
         <legendlayerfile isInOverview="0" layerid="Buffer20161205132458554" visible="1"/>
       </filegroup>
     </legendlayer>
-    <legendlayer drawingOrder="-1" open="true" checked="Qt::Checked" name="45km" showFeatureCount="0">
+    <legendlayer drawingOrder="-1" open="true" checked="Qt::Unchecked" name="45km" showFeatureCount="0">
       <filegroup open="true" hidden="false">
-        <legendlayerfile isInOverview="0" layerid="Buffer20161205132524370" visible="1"/>
+        <legendlayerfile isInOverview="0" layerid="Buffer20161205132524370" visible="0"/>
       </filegroup>
     </legendlayer>
-    <legendlayer drawingOrder="-1" open="true" checked="Qt::Checked" name="48km" showFeatureCount="0">
+    <legendlayer drawingOrder="-1" open="true" checked="Qt::Unchecked" name="48km" showFeatureCount="0">
       <filegroup open="true" hidden="false">
-        <legendlayerfile isInOverview="0" layerid="Buffer20161205132851379" visible="1"/>
+        <legendlayerfile isInOverview="0" layerid="Buffer20161205132851379" visible="0"/>
       </filegroup>
     </legendlayer>
     <legendlayer drawingOrder="-1" open="true" checked="Qt::Checked" name="GDEM (WGS84)" showFeatureCount="0">

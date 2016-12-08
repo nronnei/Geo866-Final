@@ -10,6 +10,12 @@ PROJECT_PATH = "/home/nronnei/gis/class/spatial_analysis/final_project/"
 setwd(PROJECT_PATH)
 
 
+## Projections
+prj.nad83 <- CRS("+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_defs")
+prj.wgs84 <- CRS("+proj=longlat +datum=WGS84 +no_defs")
+prj.utm <- CRS("+proj=utm +zone=12 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
+
+
 ##
 #####
 ## Data Exploration - Regression Kriging (KED)
@@ -131,33 +137,90 @@ dem.ols.evar <- variogram(ols_res ~ 1, data = yel)
 # Variogram model
 dem.ols.vgm <- fit.variogram(dem.ols.evar, vgm(model = "Sph"))
 # Plot it
-plot(dem.ols.evar, model = dem.ols.vgm, main = "Variogram of OLS Residuals",
+plot(dem.ols.evar, model = dem.ols.vgm, main = "Autofit Variogram Model of OLS Residuals",
      sub = paste("psill = ", dem.ols.vgm$psill, ", nugget = 0, range = ", dem.ols.vgm$range, sep = "" ))
 
 #####################################################
 # Use GLS to generate a trend prediction using the  #
 # variogram model developed on the OLS residuals.   #
 #####################################################
-g <- gstat("dem", n_dem ~ y + x + g_dem + g_slope, data = yel, model = dem.)
+
+## ROUND 1 - GLS
+g.gls <- gstat(id = "dem", formula = n_dem ~ y + x + g_dem + g_slope, data = yel, model = dem.ols.vgm)
+dem.gls0 <- predict(g.gls, newdata = yel, BLUE = T)
+dem.gls0$gls.res <- yel$n_dem - dem.gls0$dem.pred
+summary(dem.gls0$gls.res)
+
+# Empirical variogram of GLS residuals
+dem.gls.evar <- variogram(gls.res ~ 1, data = dem.gls0)
+plot(dem.gls.evar, main = "Variogram of GLS Residuals",
+     sub = paste("psill = ", dem.ols.vgm$psill, ", nugget = 0, range = ", dem.ols.vgm$range, sep = "" ))
+# Variogram model of GLS residuals
+dem.gls.vgm0 <- fit.variogram(dem.gls.evar, vgm("Sph"))
+plot(dem.gls.evar, model = dem.gls.vgm0, main = "Autofit Variogram Model of GLS Residuals",
+     sub = paste("psill = ", dem.gls.vgm0$psill, ", nugget = 0, range = ", dem.gls.vgm0$range, sep = "" ))
+
+
+## ROUND 2 - GLS
+g.gls <- gstat(id = "dem", formula = n_dem ~ y + x + g_dem + g_slope, data = yel, model = dem.gls.vgm0)
+dem.gls1 <- predict(g.gls, newdata = yel, BLUE = T)
+dem.gls1$gls.res <- yel$n_dem - dem.gls1$dem.pred
+summary(dem.gls1$gls.res)
+
+# Empirical variogram of GLS residuals
+dem.gls.evar <- variogram(gls.res ~ 1, data = dem.gls1)
+plot(dem.gls.evar, main = "Variogram of GLS Residuals",
+     sub = paste("psill = ", dem.ols.vgm$psill, ", nugget = 0, range = ", dem.ols.vgm$range, sep = "" ))
+# Variogram model of GLS residuals
+dem.gls.vgm1 <- fit.variogram(dem.gls.evar, vgm("Sph"))
+plot(dem.gls.evar, model = dem.gls.vgm1, main = "Autofit Variogram Model of GLS Residuals",
+     sub = paste("psill = ", dem.gls.vgm1$psill, ", nugget = 0, range = ", dem.gls.vgm1$range, sep = "" ))
+
+
+## ROUND 3 - GLS
+g.gls <- gstat(id = "dem", formula = n_dem ~ y + x + g_dem + g_slope, data = yel, model = dem.gls.vgm1)
+dem.gls2 <- predict(g.gls, newdata = yel, BLUE = T)
+dem.gls2$gls.res <- yel$n_dem - dem.gls2$dem.pred
+summary(dem.gls2$gls.res)
+
+# Empirical variogram of GLS residuals
+dem.gls.evar <- variogram(gls.res ~ 1, data = dem.gls2)
+plot(dem.gls.evar, main = "Variogram of GLS Residuals",
+     sub = paste("psill = ", dem.ols.vgm$psill, ", nugget = 0, range = ", dem.ols.vgm$range, sep = "" ))
+# Variogram model of GLS residuals
+dem.gls.vgm2 <- fit.variogram(dem.gls.evar, vgm("Sph"))
+plot(dem.gls.evar, model = dem.gls.vgm2, main = "Autofit Variogram Model of GLS Residuals",
+     sub = paste("psill = ", dem.gls.vgm2$psill, ", nugget = 0, range = ", dem.gls.vgm2$range, sep = "" ))
+
+dem.gls.vgm <- dem.gls.vgm2
+
 
 ##
 #####
-## Kriging
+## Kriging - Regression Kriging (KED)
 #####
 ##
 
 
 ## Get the grid we'll interpolate to
-# gdem.sgdf <- readGDAL("./data/dem/dem_utm_clipped.tif")
-# pt.mat <- coordinates(gdem.sgdf)
-# dem.spdf <- as.data.frame(pt.mat)
-# coordinates(dem.spdf) <- ~x+y
+gdem.sgdf <- readGDAL("./data/gdem/gdem_utm_clipped.tif")
+pt.mat <- coordinates(gdem.sgdf)
+dem.spdf <- as.data.frame(pt.mat)
+coordinates(dem.spdf) <- ~x+y
+sp::proj4string(dem.spdf) <- prj.utm
 
+# This... is... REGRESSION KRIGING!
+dem.rk <- krige(formula = gls.res ~ 1, dem.gls2, newdata = dem.spdf, 
+                beta = mean(dem.gls2$gls.res), model = dem.gls.vgm, nmax = 16, nsim = 4)
 
-# dem.uk <- krige(g_dem ~ y + x + yel$g_slope, yel, dem.sgdf, model = dem.res.vgm)
-
-
-
-
-
+for (i in 1:length(slot(dem.rk, "data"))) {
+  
+  sim <- as.data.frame(slot(dem.rk, "coords"))
+  sim$z <- slot(dem.rk, "data")[[i]]
+  path <- paste("./data/gdem/error_surfaces/sim_0", i, ".tif", sep = "")
+  
+  sim.r <- rasterFromXYZ(sim, crs = prj.utm)
+  writeRaster(sim.r, filename = path, format = "GTiff")
+  
+}
 
