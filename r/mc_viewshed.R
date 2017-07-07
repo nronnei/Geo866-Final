@@ -7,9 +7,16 @@ library(rgrass7)
 ##     GLOBALS     ##
 #####################
 
+
 PROJECT_PATH = "/home/nronnei/gis/class/spatial_analysis/final_project/"
+
 REALIZATION_PATH = "data/srtm/error_realizations/ked/"
+
 VIEWSHED_PATH = "data/viewsheds/"
+
+# This is the path to your GRASS executable. You can determine your 
+# GRASS_PATH by typing `type grass7x` on *nix systems or `where grass7x`
+# (replacing x with your minor version number).
 GRASS_PATH = "/usr/lib/grass70"
 
 setwd(PROJECT_PATH)
