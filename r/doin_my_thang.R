@@ -5,7 +5,11 @@ library(gstat)
 library(RColorBrewer)
 library(classInt)
 library(RANN)
-PROJECT_PATH = "/home/nronnei/gis/class/spatial_analysis/final_project/"
+
+## GLOBALS
+PROJECT_PATH <- "/home/nronnei/gis/class/spatial_analysis/final_project/"
+POINTS_PATH_OUT <- "r/sample_data_utm.rds"
+SAMPLE_SIZE <- 300
 
 ##
 #####
@@ -63,6 +67,59 @@ idw.dc <- function(study_points, kd_results, dc_points, k = 2) {
 }
 
 
+polygonFromBbox <- function(bbox, s_srs, t_srs = NULL) {
+  
+  if (class(bbox) == "matrix") {
+    coords <- matrix(c(
+      bbox[1,1], bbox[2,1],
+      bbox[1,1], bbox[2,2],
+      bbox[1,2], bbox[2,2],
+      bbox[1,2], bbox[2,1],
+      bbox[1,1], bbox[2,1]
+    ), ncol = 2, byrow = T)
+    
+    basePoly <- Polygon(coords)
+    extent <- SpatialPolygons(list(Polygons(list(basePoly), id = "a")), proj4string = s_srs)
+    
+    if (is.null(t_srs)) {
+      
+      return(extent)
+      
+    } else {
+      
+      extent <- spTransform(extent, t_srs)
+      return(extent)
+      
+    }
+    
+  } else if (class(bbox) == "Extent") {
+    
+    coords <- matrix(c(
+      bbox[1,1], bbox[2,1],
+      bbox[1,1], bbox[2,2],
+      bbox[1,2], bbox[2,2],
+      bbox[1,2], bbox[2,1],
+      bbox[1,1], bbox[2,1]
+    ), ncol = 2, byrow = T)
+    
+    basePoly <- Polygon(coords)
+    extent <- SpatialPolygons(list(Polygons(list(basePoly), id = "a")), proj4string = s_srs)
+    
+    if (is.null(t_srs)) {
+      
+      return(extent)
+      
+    } else {
+      
+      extent <- spTransform(extent, t_srs)
+      return(extent)
+      
+    }
+  }
+  
+}
+
+
 ##
 #####
 ## Data Prep
@@ -77,11 +134,11 @@ prj.wgs84 <- CRS("+proj=longlat +datum=WGS84 +no_defs")
 prj.utm <- CRS("+proj=utm +zone=12 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
 
 
-## Prep study area boundar
-study_area.wgs84 <- readOGR("./data/study_area/study_area_wgs84.shp/study_area_wgs84.shp", "study_area_wgs84")
+## Prep study area boundary, sample area boundary
 study_area.nad83 <- readOGR("./data/study_area/study_area_nad83.shp/study_area_nad83.shp", "study_area_nad83")
-study_area.utm <- spTransform(study_area.wgs84, prj.utm)
-sam.bb <- bbox(spTransform(readOGR("./data/osm/eer_48km_wgs84.shp", "eer_48km_wgs84"), prj.nad83)) 
+study_area.utm <- spTransform(study_area.nad83, prj.utm)
+sam.45.bb <- bbox(spTransform(readOGR("./data/osm/eer_45km_wgs84.shp", "eer_45km_wgs84"), prj.nad83))
+sam.48.bb <- bbox(spTransform(readOGR("./data/osm/eer_48km_wgs84.shp", "eer_48km_wgs84"), prj.nad83)) 
 
 
 ## Prep road data
@@ -89,8 +146,10 @@ eer.utm <- readOGR("./data/osm/eer_utm.shp", "eer_utm")
 
 
 ## Load DEMs
-gdem <- raster("./data/gdem/gdem_utm_clipped.tif")
+srtm <- raster("./data/srtm/srtm_utm_clipped.tif")
+srtm.extent <- extent(srtm)
 ned <- raster("./data/ned/ned_nad83.tif")
+
 
 
 ## Sample Reference DEM
@@ -99,7 +158,7 @@ dc <- read.csv("./data/points/usa_111k_datum_correction.csv", header = T, sep = 
 coordinates(dc) <- ~Lon+Lat
 
 # Get 300 random points from within our study area
-sa.sam <- spsample(study_area.nad83, 300, "random", bb = sam.bb) # slightly smaller bb ensures all sample points fall w/in study area
+sa.sam <- spsample(study_area.nad83, SAMPLE_SIZE, "random", bb = sam.45.bb) # slightly smaller bb ensures all sample points fall w/in study area
 plot(study_area.nad83, main = "Sample Points")
 points(sa.sam, pch = 1, cex = 1)
 summary(sa.sam)
@@ -118,9 +177,9 @@ sa.sam$c_elev <- sa.sam$n_dem + sa.sam$dc
 # Convert to UTM to make life easier and maps more rectangular
 sam.utm <- spTransform(sa.sam, prj.utm)
 
-# Compare GDEM to NED
-sam.utm$g_dem <- extract(gdem, sam.utm)
-sam.utm$diff <- sam.utm$g_dem - sam.utm$c_elev
+# Compare srtm to NED
+sam.utm$s_dem <- extract(srtm, sam.utm)
+sam.utm$diff <- sam.utm$s_dem - sam.utm$c_elev
 
 
 
@@ -138,11 +197,11 @@ col.disc.spect <- rev(brewer.pal(7,"Spectral"))
 
 
 ## Plot DEM 
-image(gdem, main = "ASTER GDEM (1/3as Resolution) Yellowstone National Park, WY",
+image(srtm, main = "SRTM (3as Resolution) Yellowstone National Park, WY",
       col = col.cont.greens, xlab = "Easting", ylab = "Northing")
 mtext("East Entrance Road in Neon Blue")
 lines(eer.utm, col = "#82fffc", lwd = 2)
-dev.print(png, "./deliverables/img/gdem-with-roads.png", height=600, width=800)
+dev.print(png, "./deliverables/img/srtm-with-roads.png", height=600, width=800)
 
 
 ## Plot the study points with UTM 12N Projection
@@ -152,15 +211,15 @@ diff.col <-  findColours(dc.brks.jenks, col.disc.spect)
 # Plot it
 plot(study_area.utm, main = "Datum Corrections by Z Score", axes = T)
 mtext(paste("Values Range Between ", round(min(sam.utm$dc), digits = 3), "m and ", round(max(sam.utm$dc), digits = 3), "m", sep = "" ))
-points(sam.utm["dc"], pch = 3, col = col.disc.spect, cex = abs((sam.utm$dc - mean(sam.utm$dc)) / sd(sam.utm$dc)))
-points(sam.utm["dc"], pch = 20, col = col.disc.spect, cex = .75) 
+points(sam.utm["dc"], pch = 3, col = diff.col, cex = abs((sam.utm$dc - mean(sam.utm$dc)) / sd(sam.utm$dc)))
+points(sam.utm["dc"], pch = 20, col = diff.col, cex = .75) 
 dev.print(png, "./deliverables/img/dc-by-size.png", height=600, width=800) 
 
 
 ## Check out differences in DEM values
-sam.hist <- hist(sam.utm$diff, main = "Difference: GDEM - NED", breaks = 30) 
+sam.hist <- hist(sam.utm$diff, main = "Difference: SRTM - NED", breaks = 30) 
 dev.print(png, "./deliverables/img/diff-hist.png", height=600, width=800) 
-sam.qqn <- qqnorm(sam.utm$diff, main = "QQ Norm of Difference: GDEM - NED", ylab = "Difference(m)")
+sam.qqn <- qqnorm(sam.utm$diff, main = "QQ Norm of Difference: SRTM - NED", ylab = "Difference(m)")
 dev.print(png, "./deliverables/img/diff-qqn.png", height=600, width=800)
 
 
@@ -175,17 +234,17 @@ points(sam.utm["diff"], pch = 3, col = diff.col, cex = abs((sam.utm$diff - mean(
 points(sam.utm["diff"], pch = 20, col = diff.col, cex = .75)
 dev.print(png, "./deliverables/img/diff-by-zscore.png", height=600, width=800)
 
-## Creating Slope Raster
-gdem.slope <- terrain(gdem, opt = "slope", unit = "degrees")
-sam.utm$g_slope <- extract(gdem.slope, sam.utm)
 
+## Creating Slope Raster
+srtm.slope <- terrain(srtm, opt = "slope", unit = "degrees")
+sam.utm$s_slope <- extract(srtm.slope, sam.utm)
 
 ## Creating Aspect Raster
-gdem.aspect <- terrain(gdem, opt = "aspect", unit = "degrees")
-sam.utm$g_aspect <- extract(gdem.aspect, sam.utm)
+srtm.aspect <- terrain(srtm, opt = "aspect", unit = "degrees")
+sam.utm$s_aspect <- extract(srtm.aspect, sam.utm)
 
 ## Store sample data so we don't mess up our sample in the TSA phase
-saveRDS(sam.utm, "./r/sample_data_utm.rds")
+saveRDS(sam.utm, POINTS_PATH_OUT)
 
 ##
 #####

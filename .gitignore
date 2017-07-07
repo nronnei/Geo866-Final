@@ -2,4 +2,11 @@ project_code.zip
 all_data.zip
 data/
 
+grass/
+.grassrc7
+
 .Rproj.user
+.RData
+.Rhistory
+*.Rproj
+Rplots.pdf
